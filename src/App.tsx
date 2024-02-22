@@ -3,9 +3,50 @@ import { Header } from "./components/header";
 import { Tabs } from "./components/tabs";
 import { Button } from "./components/ui/button";
 import { Control, Input } from "./components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./components/ui/table";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Pagination } from "./components/pagination";
+import { useSearchParams } from "react-router-dom";
+
+export interface TagResponse {
+  first: number;
+  prev: number | null;
+  next: number;
+  last: number;
+  pages: number;
+  items: number;
+  data: Tag[];
+}
+
+export interface Tag {
+  title: string;
+  amountOfVideos: number;
+  id: string;
+}
 
 function App() {
+  const [searchParams] = useSearchParams();
+  const page = searchParams.get('page') ? Number(searchParams.get('page')!) : 1
+  const { data: tagsReponse, isLoading } = useQuery<TagResponse>({
+    queryKey: ["get-tags", page],
+    queryFn: async () => {
+      const reponse = await fetch(`http://localhost:3333/tags?_page=${page}&_per_page=10`)
+      const data = await reponse.json()
+      return data
+    },
+    placeholderData: keepPreviousData,
+  })
+
+  if (isLoading) {
+    return null
+  }
   return (
     <div className="py-10 space-y-8">
       <Header />
@@ -30,35 +71,40 @@ function App() {
         </div>
         <Table>
           <TableHeader>
-             <TableRow>
-                <TableHead></TableHead>
-                <TableHead>Tag</TableHead>
-                <TableHead>Amount of videos</TableHead>
-                <TableHead></TableHead>
-             </TableRow>
+            <TableRow>
+              <TableHead></TableHead>
+              <TableHead>Tag</TableHead>
+              <TableHead>Amount of videos</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell></TableCell>
-              <TableCell>
-                <div className="flex flex-col">
-                  <span className="font-medium text-zinc-100">
-                    React
-                  </span>
-                  <span className="text-xs text-zinc-500">9E09880-3FC23-ASC-232</span>
-                </div>
-              </TableCell>
-              <TableCell className="text-zinc-300">
-                13 vídeo(s)
-              </TableCell>
-              <TableCell className="text-right">
-                <Button size="icon">
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          </TableBody>        
+            {tagsReponse?.data.map((tag) => (
+              <TableRow key={tag.id}>
+                <TableCell></TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-zinc-100">{tag.title}</span>
+                    <span className="text-xs text-zinc-500">
+                      {tag.id}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-zinc-300">{tag.amountOfVideos} video(s)</TableCell>
+                <TableCell className="text-right">
+                  <Button size="icon">
+                    <MoreHorizontal className="size-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
         </Table>
+        {
+          tagsReponse && (
+            <Pagination pages={tagsReponse.pages} items={tagsReponse.items} page={page} />
+          )
+        }
       </main>
     </div>
   );
